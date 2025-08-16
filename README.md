@@ -2,8 +2,6 @@
 
 A simple real-time chat application built with Blazor Web Server (.NET 8.0) and SignalR, demonstrating WebSocket communication basics.
 
-![Demo Screenshot](screenshot.png) *(consider adding a screenshot later)*
-
 ## Features
 
 - Real-time messaging using SignalR
