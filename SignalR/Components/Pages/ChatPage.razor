@@ -1,0 +1,119 @@
+﻿@page "/chatpage"
+@using Microsoft.AspNetCore.SignalR.Client
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+@implements IAsyncDisposable
+
+<h1>Live Users: @Count</h1>
+
+
+<div class="mb-3">
+	<input type="text" class="form-control w-50" placeholder="Username" @bind="UserName" />
+</div>
+
+<div class="mb-1">
+	<input type="text" class="form-control w-50" placeholder="Message" @bind="UserMessage" />
+</div>
+
+<button @onclick="SendMessage">Send</button>
+
+
+
+@if (MessageList != null && MessageList.Count > 0)
+{
+	<ul>
+		@foreach (var message in MessageList)
+		{
+			<li>
+				@message.Name : @message.Message
+			</li>
+		}
+	</ul>
+}
+
+@code {
+	public class User
+	{
+		public string? Name { get; set; }
+		public string? Message { get; set; }
+	}
+	private string? UserName;
+	private string? UserMessage;
+	private List<User> MessageList = new();
+	private HubConnection? hubConnection;
+	private int Count = 0;
+
+
+	protected override async Task OnInitializedAsync()
+	{
+		//connecting to the signalR hub (same name as in program.cs)
+		try
+		{
+			hubConnection = new HubConnectionBuilder()
+			.WithUrl(Navigation.ToAbsoluteUri("/chathub")) //same as in program.cs
+			.Build();
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine(ex.Message);
+		}
+
+		try
+		{
+			hubConnection!.On<string, string>("ReceiveMessage", (User, Messagee) =>
+			{
+				MessageList.Add(new ChatPage.User
+				{
+					Name = User,
+					Message = Messagee
+				});
+				InvokeAsync(StateHasChanged);
+			});
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"Exception : {ex.Message}");
+		}
+
+		try
+		{
+			hubConnection.On<int>("UpdateUserCount", count =>
+	{
+		Count = count;
+		InvokeAsync(StateHasChanged);
+	});
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine(ex.Message);
+		}
+
+
+		await hubConnection.StartAsync();
+	}
+
+	private async Task SendMessage()
+	{
+		if (hubConnection is not null)
+		{
+			try
+			{
+				await hubConnection.InvokeAsync("SendMessage", UserName, UserMessage);
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine(ex.Message);
+			}
+			finally
+			{
+				UserMessage = "";
+			}
+		}
+	}
+
+	public async ValueTask DisposeAsync()
+	{
+		//dispose the connection when user leaves the page
+		_ = hubConnection?.DisposeAsync();
+	}
+}
